@@ -43,6 +43,9 @@
     <string name="batteryLevelTooHigh">Batter Level shouldn\'t exceed 100</string>
     <string name="batteryLevelIncorrect">Please enter a number between 0 and 100</string>
 
+    <!-- WIFI Service -->
+    <string name="wifiService_name">WIFI Service</string>
+
     <!-- Hear Rate Service -->
     <string name="label_bodySensorLocation">Body Sensor Location</string>
     <string name="heartRateServiceName">Heart Rate Service</string>
