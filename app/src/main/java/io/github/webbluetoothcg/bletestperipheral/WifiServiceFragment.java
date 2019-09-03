@@ -22,6 +22,7 @@ import android.bluetooth.BluetoothGattService;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.ParcelUuid;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -63,11 +64,11 @@ public class WifiServiceFragment extends ServiceFragment {
   private static final String WIFI_TYPE_DESCRIPTION = "WPA/WPA2";
 
   private static final UUID WIFI_STATUS_UUID = UUID
-          .fromString("f1111237-0a18-48e6-b842-aa814d891ace");
+          .fromString("f1111237-0a21-48e6-b842-aa814d891ace");
   private static final String WIFI_STATUS_DESCRIPTION = "Not Connected/Connecting/Connected/Error";
 
   private static final UUID WIFI_COMMAND_UUID = UUID
-          .fromString("f1111237-0b17-48e6-b842-aa814d891ace");
+          .fromString("f1111237-1a18-48e6-b842-aa814d891ace");
   private static final String WIFI_COMMAND_DESCRIPTION = "Connect/Reset";
 
 
@@ -88,6 +89,8 @@ public class WifiServiceFragment extends ServiceFragment {
   private BluetoothGattCharacteristic mWifiTypeCharacteristic;
   private BluetoothGattCharacteristic mWifiStatusCharacteristic;
   private BluetoothGattCharacteristic mWifiCommandCharacteristic;
+
+  private Activity activity;
 
   public WifiServiceFragment() {
     mWifiSSIDCharacteristic =
@@ -167,6 +170,7 @@ public class WifiServiceFragment extends ServiceFragment {
   @Override
   public void onAttach(Activity activity) {
     super.onAttach(activity);
+    this.activity = activity;
     try {
       mDelegate = (ServiceFragmentDelegate) activity;
     } catch (ClassCastException e) {
@@ -246,19 +250,30 @@ public class WifiServiceFragment extends ServiceFragment {
   public int writeCharacteristic(BluetoothGattCharacteristic characteristic, int offset, byte[] value) {
      if (characteristic.setValue(value)) {
        try {
-         UUID uuid = characteristic.getUuid();
-         String text = new String(value, "UTF-8");
-         if (uuid.equals(WIFI_PASSWORD_UUID)) {
-           mWifiPASSTextView.setText(text);
-         } else if (uuid.equals(WIFI_SSID_UUID)) {
-           mWifiSSIDTextView.setText(text);
-         } else if (uuid.equals(WIFI_STATUS_UUID)) {
-           mWifiStatusTextView.setText(text);
-         } else if (uuid.equals(WIFI_COMMAND_UUID)) {
-           mWifiCommandTextView.setText(text);
-         } else if (uuid.equals(WIFI_TYPE_UUID)) {
-           mWifiTypeTextView.setText(text);
-         }
+         final UUID uuid = characteristic.getUuid();
+         final String text = new String(value, "UTF-8");
+         Handler mainHandler = new Handler(activity.getMainLooper());
+
+         Runnable myRunnable = new Runnable() {
+           @Override
+           public void run() {
+
+             if (uuid.equals(WIFI_PASSWORD_UUID)) {
+               mWifiPASSTextView.setText(text);
+             } else if (uuid.equals(WIFI_SSID_UUID)) {
+               mWifiSSIDTextView.setText(text);
+             } else if (uuid.equals(WIFI_STATUS_UUID)) {
+               mWifiStatusTextView.setText(text);
+             } else if (uuid.equals(WIFI_COMMAND_UUID)) {
+               mWifiCommandTextView.setText(text);
+             } else if (uuid.equals(WIFI_TYPE_UUID)) {
+               mWifiTypeTextView.setText(text);
+             }
+
+           }
+         };
+         mainHandler.post(myRunnable);
+
        } catch (UnsupportedEncodingException e) {
          e.printStackTrace();
        }
