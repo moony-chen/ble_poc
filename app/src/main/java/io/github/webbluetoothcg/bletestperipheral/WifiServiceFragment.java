@@ -189,6 +189,7 @@ public class WifiServiceFragment extends ServiceFragment {
     }
 
 
+//    https://stackoverflow.com/questions/5888502/how-to-detect-when-wifi-connection-has-been-established-in-android#
 
     BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
       @Override
