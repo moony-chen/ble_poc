@@ -19,10 +19,17 @@ package io.github.webbluetoothcg.bletestperipheral;
 import android.app.Activity;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.ParcelUuid;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -91,6 +98,7 @@ public class WifiServiceFragment extends ServiceFragment {
   private BluetoothGattCharacteristic mWifiCommandCharacteristic;
 
   private Activity activity;
+  private Handler mainHandler;
 
   public WifiServiceFragment() {
     mWifiSSIDCharacteristic =
@@ -162,7 +170,7 @@ public class WifiServiceFragment extends ServiceFragment {
     mWifiTypeTextView = (TextView) view.findViewById(R.id.label_wifiType);
     mWifiCommandTextView = (TextView) view.findViewById(R.id.label_wifiCommand);
 
-
+    mWifiStatusTextView.setText(mWifiStatusCharacteristic.getStringValue(0));
 
     return view;
   }
@@ -171,6 +179,49 @@ public class WifiServiceFragment extends ServiceFragment {
   public void onAttach(Activity activity) {
     super.onAttach(activity);
     this.activity = activity;
+
+    this.mainHandler = new Handler(activity.getMainLooper());
+
+    if (isConnectedViaWifi()) {
+      mWifiStatusCharacteristic.setValue("wifi已连接");
+    } else {
+      mWifiStatusCharacteristic.setValue("无wifi连接！");
+    }
+
+
+
+    BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
+      @Override
+      public void onReceive(Context context, Intent intent) {
+        final String action = intent.getAction();
+        if (action.equals(WifiManager.SUPPLICANT_CONNECTION_CHANGE_ACTION)) {
+          if (intent.getBooleanExtra(WifiManager.EXTRA_SUPPLICANT_CONNECTED, false)) {
+            //do stuff
+            mWifiStatusCharacteristic.setValue("wifi连接成功！");
+          } else {
+            // wifi connection was lost
+            mWifiStatusCharacteristic.setValue("无wifi连接！");
+          }
+
+          Runnable myRunnable = new Runnable() {
+            @Override
+            public void run() {
+
+              mWifiStatusTextView.setText(mWifiStatusCharacteristic.getStringValue(0));
+
+            }
+          };
+          mainHandler.post(myRunnable);
+        }
+      }
+    };
+
+
+    IntentFilter intentFilter = new IntentFilter();
+    intentFilter.addAction(WifiManager.SUPPLICANT_CONNECTION_CHANGE_ACTION);
+    activity.registerReceiver(broadcastReceiver, intentFilter);
+
+
     try {
       mDelegate = (ServiceFragmentDelegate) activity;
     } catch (ClassCastException e) {
@@ -252,7 +303,7 @@ public class WifiServiceFragment extends ServiceFragment {
        try {
          final UUID uuid = characteristic.getUuid();
          final String text = new String(value, "UTF-8");
-         Handler mainHandler = new Handler(activity.getMainLooper());
+
 
          Runnable myRunnable = new Runnable() {
            @Override
@@ -266,6 +317,7 @@ public class WifiServiceFragment extends ServiceFragment {
                mWifiStatusTextView.setText(text);
              } else if (uuid.equals(WIFI_COMMAND_UUID)) {
                mWifiCommandTextView.setText(text);
+               dispatchCommand(text);
              } else if (uuid.equals(WIFI_TYPE_UUID)) {
                mWifiTypeTextView.setText(text);
              }
@@ -281,4 +333,25 @@ public class WifiServiceFragment extends ServiceFragment {
      }
      return GATT_FAILURE;
   }
+
+  private void dispatchCommand(String command) {
+    if (command.equals("ConnectWiFi")) {
+      mWifiStatusCharacteristic.setValue("正在配置wifi");
+      try {
+        connectWIFI();
+      } catch (Exception e) {
+        e.printStackTrace();
+        mWifiStatusCharacteristic.setValue("配置wifi出错！");
+      }
+    }
+  }
+
+  private boolean isConnectedViaWifi() {
+    ConnectivityManager connectivityManager = (ConnectivityManager) activity.getSystemService(Context.CONNECTIVITY_SERVICE);
+    NetworkInfo mWifi = connectivityManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
+    return mWifi.isConnected();
+  }
+
+
+
 }
