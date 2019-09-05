@@ -51,6 +51,7 @@ import java.util.UUID;
 import static android.bluetooth.BluetoothGatt.GATT_FAILURE;
 import static android.bluetooth.BluetoothGatt.GATT_SUCCESS;
 import static android.content.Context.WIFI_SERVICE;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 
 public class WifiServiceFragment extends ServiceFragment {
@@ -195,14 +196,20 @@ public class WifiServiceFragment extends ServiceFragment {
       @Override
       public void onReceive(Context context, Intent intent) {
         final String action = intent.getAction();
-        if (action.equals(WifiManager.SUPPLICANT_CONNECTION_CHANGE_ACTION)) {
-          if (intent.getBooleanExtra(WifiManager.EXTRA_SUPPLICANT_CONNECTED, false)) {
+        if (action.equals(WifiManager.NETWORK_STATE_CHANGED_ACTION )) {
+
+          NetworkInfo nwInfo = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO);
+          if (nwInfo==null) return ;
+          if( nwInfo.isConnected()){//This implies the WiFi connection is through
+
             //do stuff
-            mWifiStatusCharacteristic.setValue("wifi连接成功！");
-          } else {
+            mWifiStatusCharacteristic.setValue("wifi_connect_success");
+          } else if (nwInfo.isConnectedOrConnecting()) {
             // wifi connection was lost
-            mWifiStatusCharacteristic.setValue("无wifi连接！");
+            mWifiStatusCharacteristic.setValue("wifi_connecting");
+
           }
+          mDelegate.sendNotificationToDevices(mWifiStatusCharacteristic);
 
           Runnable myRunnable = new Runnable() {
             @Override
@@ -219,7 +226,7 @@ public class WifiServiceFragment extends ServiceFragment {
 
 
     IntentFilter intentFilter = new IntentFilter();
-    intentFilter.addAction(WifiManager.SUPPLICANT_CONNECTION_CHANGE_ACTION);
+    intentFilter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
     activity.registerReceiver(broadcastReceiver, intentFilter);
 
 
@@ -337,13 +344,14 @@ public class WifiServiceFragment extends ServiceFragment {
 
   private void dispatchCommand(String command) {
     if (command.equals("ConnectWiFi")) {
-      mWifiStatusCharacteristic.setValue("正在配置wifi");
+      mWifiStatusCharacteristic.setValue("wifi_connecting");
       try {
         connectWIFI();
       } catch (Exception e) {
         e.printStackTrace();
-        mWifiStatusCharacteristic.setValue("配置wifi出错！");
+        mWifiStatusCharacteristic.setValue("wifi_connecting_error");
       }
+      mDelegate.sendNotificationToDevices(mWifiStatusCharacteristic);
     }
   }
 
