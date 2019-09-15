@@ -26,11 +26,13 @@ import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.ParcelUuid;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -55,6 +57,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 
 public class WifiServiceFragment extends ServiceFragment {
+
+  private static final String TAG = "WifiServiceFragment";
 
   private static final UUID WIFI_SERVICE_UUID = UUID
       .fromString("f1111237-0a17-48e6-b842-aa814d891ace");
@@ -200,20 +204,46 @@ public class WifiServiceFragment extends ServiceFragment {
 
           NetworkInfo nwInfo = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO);
           if (nwInfo==null) return ;
-          if( nwInfo.isConnected()){//This implies the WiFi connection is through
+          NetworkInfo.State state = nwInfo.getState();
+          NetworkInfo.DetailedState detailedState = nwInfo.getDetailedState();
+          Log.e(TAG, "detailedState" + detailedState.name());
+          if (state != null) {
+            Log.e(TAG, "state" + state.name());
+            switch (detailedState) {
+              case CONNECTING:
+              case VERIFYING_POOR_LINK:
+              case SCANNING:
+              case OBTAINING_IPADDR:
+              case AUTHENTICATING:
+              case CAPTIVE_PORTAL_CHECK:
+                mWifiStatusCharacteristic.setValue("wifi_connecting");
+                break;
+              case CONNECTED:
+                mWifiStatusCharacteristic.setValue("wifi_connected");
+                break;
+              default:
+                mWifiStatusCharacteristic.setValue("wifi_disconnected");
+                break;
+            }
+          } else {
+            if( nwInfo.isConnected()){//This implies the WiFi connection is through
 
-            //do stuff
-            mWifiStatusCharacteristic.setValue("wifi_connect_success");
-          } else if (nwInfo.isConnectedOrConnecting()) {
-            // wifi connection was lost
-            mWifiStatusCharacteristic.setValue("wifi_connecting");
+              //do stuff
+              mWifiStatusCharacteristic.setValue("wifi_connected");
+            } else if (nwInfo.isConnectedOrConnecting()) {
+              // wifi connection was lost
+              mWifiStatusCharacteristic.setValue("wifi_connecting");
 
+            } else {
+              mWifiStatusCharacteristic.setValue("wifi_disconnected");
+            }
           }
-          mDelegate.sendNotificationToDevices(mWifiStatusCharacteristic);
+
 
           Runnable myRunnable = new Runnable() {
             @Override
             public void run() {
+              mDelegate.sendNotificationToDevices(mWifiStatusCharacteristic);
 
               mWifiStatusTextView.setText(mWifiStatusCharacteristic.getStringValue(0));
 
@@ -286,6 +316,8 @@ public class WifiServiceFragment extends ServiceFragment {
     });
   }
 
+
+
   private void connectWIFI() throws Exception {
     // https://stackoverflow.com/questions/8818290/how-do-i-connect-to-a-specific-wi-fi-network-in-android-programmatically
 
@@ -296,6 +328,19 @@ public class WifiServiceFragment extends ServiceFragment {
 
         config.SSID = "\""+ssid+"\"";
         config.preSharedKey = "\""+password+"\"";
+
+        mWifiStatusCharacteristic.setValue("wifi_connecting");
+        Runnable myRunnable = new Runnable() {
+          @Override
+          public void run() {
+            mDelegate.sendNotificationToDevices(mWifiStatusCharacteristic);
+
+            mWifiStatusTextView.setText(mWifiStatusCharacteristic.getStringValue(0));
+
+          }
+        };
+        mainHandler.post(myRunnable);
+
 
         int networkId = wifiManager.addNetwork(config);
 

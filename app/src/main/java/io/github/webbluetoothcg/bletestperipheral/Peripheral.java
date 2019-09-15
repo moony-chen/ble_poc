@@ -32,6 +32,8 @@ import android.bluetooth.le.AdvertiseSettings;
 import android.bluetooth.le.BluetoothLeAdvertiser;
 import android.content.Context;
 import android.content.Intent;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
@@ -284,12 +286,27 @@ public class Peripheral extends Activity implements ServiceFragmentDelegate {
         .setConnectable(true)
         .build();
     mAdvData = new AdvertiseData.Builder()
-        .setIncludeTxPowerLevel(true)
+        .setIncludeTxPowerLevel(false)
         .addServiceUuid(mCurrentServiceFragment.getServiceUUID())
+            .addManufacturerData(0, getWifiMac())
         .build();
     mAdvScanResponse = new AdvertiseData.Builder()
         .setIncludeDeviceName(true)
         .build();
+  }
+
+  private byte[] getWifiMac() {
+    WifiManager wifiManager = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
+    WifiInfo wInfo = wifiManager.getConnectionInfo();
+    String macAddress = wInfo.getMacAddress();
+    Log.d(TAG, macAddress);
+
+    String[] mac = macAddress.split(":");
+    byte[] macAddressBytes = new byte[6];        // mac.length == 6 bytes
+    for(int i = 0; i < mac.length; i++) {
+      macAddressBytes[i] = Integer.decode("0x" + mac[i]).byteValue();
+    }
+    return macAddressBytes;
   }
 
   @Override
